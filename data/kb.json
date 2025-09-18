@@ -1,0 +1,32 @@
+[
+  {
+    "id": "shipping-policy",
+    "title": "Shipping Policy",
+    "content": "We offer free standard shipping on orders over $50. Standard shipping takes 3-5 business days. Express shipping (1-2 business days) costs $9.99. We ship Monday-Friday, excluding holidays."
+  },
+  {
+    "id": "return-policy", 
+    "title": "Return Policy",
+    "content": "Items can be returned within 30 days of delivery for a full refund. Items must be unused and in original packaging. Return shipping is free for defective items, $5.99 for other returns."
+  },
+  {
+    "id": "refund-policy",
+    "title": "Refund Policy", 
+    "content": "Refunds are processed within 3-5 business days after we receive your return. Refunds go back to the original payment method. Shipping charges are non-refundable unless the item was defective."
+  },
+  {
+    "id": "order-cancellation",
+    "title": "Order Cancellation",
+    "content": "Orders can be cancelled for free if they haven't shipped yet. Once an order has shipped, it cannot be cancelled but can be returned after delivery following our return policy."
+  },
+  {
+    "id": "tracking-info",
+    "title": "Order Tracking",
+    "content": "You'll receive a tracking number via email once your order ships. You can track your package on our website or the carrier's website. Delivery confirmation is available upon request."
+  },
+  {
+    "id": "size-exchanges",
+    "title": "Size Exchanges", 
+    "content": "Free size exchanges are available within 30 days. The original item must be returned in new condition. We'll send the new size once we receive the return."
+  }
+]
