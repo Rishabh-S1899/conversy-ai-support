@@ -119,20 +119,19 @@ const initDb = () => {
 // Initialize database
 const db = initDb();
 
-// Initialize OpenAI and RAG system
-let openai = null;
+// Initialize Gemini and RAG system
+let gemini = null;
 let kbIndex = null;
 
-const initOpenAI = async () => {
-  if (!process.env.OPENAI_API_KEY) {
-    console.warn('WARNING: OPENAI_API_KEY not set. AI features will be disabled.');
+const initGemini = async () => {
+  if (!process.env.GEMINI_API_KEY) {
+    console.warn('WARNING: GEMINI_API_KEY not set. AI features will be disabled.');
     return;
   }
   
-  const { OpenAI } = require('openai');
-  openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-  });
+  const { GoogleGenerativeAI } = require('@google/generative-ai');
+  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+  gemini = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
   
   // Initialize knowledge base
   await initKnowledgeBase();
@@ -190,21 +189,23 @@ const initKnowledgeBase = async () => {
   
   if (fs.existsSync(kbIndexPath)) {
     kbIndex = JSON.parse(fs.readFileSync(kbIndexPath, 'utf8'));
-  } else if (openai) {
-    // Generate embeddings for KB
+  } else if (gemini) {
+    // Generate embeddings for KB using Gemini
     console.log('Generating embeddings for knowledge base...');
     kbIndex = [];
     
+    const embedModel = require('@google/generative-ai').GoogleGenerativeAI;
+    const genAI = new embedModel(process.env.GEMINI_API_KEY);
+    const embeddingModel = genAI.getGenerativeModel({ model: 'text-embedding-004' });
+    
     for (const item of kb) {
       try {
-        const embedding = await openai.embeddings.create({
-          model: 'text-embedding-3-small',
-          input: `${item.title}: ${item.content}`
-        });
+        const result = await embeddingModel.embedContent(`${item.title}: ${item.content}`);
+        const embedding = result.embedding.values;
         
         kbIndex.push({
           ...item,
-          embedding: embedding.data[0].embedding
+          embedding: embedding
         });
       } catch (error) {
         console.error(`Error generating embedding for ${item.id}:`, error.message);
@@ -249,17 +250,19 @@ const cosineSimilarity = (a, b) => {
 const searchKnowledgeBase = async (query) => {
   if (!kbIndex) return [];
   
-  if (openai && kbIndex[0]?.embedding) {
+  if (gemini && kbIndex[0]?.embedding) {
     try {
-      // Use embedding similarity
-      const queryEmbedding = await openai.embeddings.create({
-        model: 'text-embedding-3-small',
-        input: query
-      });
+      // Use embedding similarity with Gemini
+      const { GoogleGenerativeAI } = require('@google/generative-ai');
+      const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+      const embeddingModel = genAI.getGenerativeModel({ model: 'text-embedding-004' });
+      
+      const result = await embeddingModel.embedContent(query);
+      const queryEmbedding = result.embedding.values;
       
       const similarities = kbIndex.map(item => ({
         ...item,
-        similarity: item.embedding ? cosineSimilarity(queryEmbedding.data[0].embedding, item.embedding) : 0
+        similarity: item.embedding ? cosineSimilarity(queryEmbedding, item.embedding) : 0
       }));
       
       return similarities
@@ -308,8 +311,8 @@ app.post('/api/chat', async (req, res) => {
       }
     }
     
-    if (!openai) {
-      // Fallback response without OpenAI
+    if (!gemini) {
+      // Fallback response without Gemini
       const response = {
         intent: 'fallback',
         confidence: 0.5,
@@ -369,21 +372,19 @@ Rules:
 - Only suggest actions for valid requests with proper order info
 - Destructive actions (cancel, return, refund) require explicit customer confirmation`;
     
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4',
-      messages: [
-        { role: 'system', content: contextPrompt },
-        { role: 'user', content: message }
-      ],
-      temperature: 0.3,
-    });
+    const prompt = `${contextPrompt}
+
+User message: ${message}`;
+    
+    const result = await gemini.generateContent(prompt);
+    const responseText = result.response.text();
     
     let llmResponse;
     try {
-      llmResponse = JSON.parse(completion.choices[0].message.content);
+      llmResponse = JSON.parse(responseText);
       llmResponse.kb_matches = kbMatches;
     } catch (error) {
-      console.error('Failed to parse LLM response as JSON:', error);
+      console.error('Failed to parse Gemini response as JSON:', error);
       llmResponse = {
         intent: 'parse_error',
         confidence: 0.1,
@@ -711,7 +712,7 @@ app.get('*', (req, res) => {
 
 // Start server
 const startServer = async () => {
-  await initOpenAI();
+  await initGemini();
   
   app.listen(PORT, () => {
     console.log(`🚀 Customer Support Server running on port ${PORT}`);
@@ -719,8 +720,8 @@ const startServer = async () => {
     console.log(`🔧 Agent UI: http://localhost:${PORT}/agent`);
     console.log(`📋 Audit Logs: http://localhost:${PORT}/admin/audit`);
     
-    if (!process.env.OPENAI_API_KEY) {
-      console.log('⚠️  Set OPENAI_API_KEY environment variable to enable AI features');
+    if (!process.env.GEMINI_API_KEY) {
+      console.log('⚠️  Set GEMINI_API_KEY environment variable to enable AI features');
     }
     if (!process.env.AGENT_PASSWORD) {
       console.log('⚠️  Set AGENT_PASSWORD environment variable to secure agent access');
